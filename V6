@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>小組服事排班系統 Pro V6</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+        }
+
+        .table-sticky th {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 2;
+        }
+
+        .rest-row {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        .w-28 {
+            width: 7rem;
+        }
+
+        .w-20 {
+            width: 5rem;
+        }
+
+        .w-16 {
+            width: 4rem;
+        }
+
+        .tiny {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            border-radius: 999px;
+            padding: .15rem .55rem;
+            background: #eef2ff;
+            margin: .1rem;
+        }
+
+            .chip button {
+                border: 0;
+                background: transparent;
+                color: #6b7280;
+                padding: 0;
+                line-height: 1;
+            }
+
+        .warning-cell {
+            background: #fff7ed !important;
+            border-color: #fdba74 !important;
+        }
+
+        .warning-text {
+            color: #c2410c;
+            font-size: 12px;
+            margin-top: .25rem;
+        }
+
+        .muted-box {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: .5rem;
+            padding: .5rem;
+            min-height: 2.4rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h1 class="h3 m-0">小組服事排班系統 Pro <span class="tiny">V6</span></h1>
+            <div class="d-flex gap-2">
+                <button id="btnExportXLSX" class="btn btn-success">匯出 Excel</button>
+                <button id="btnExportJSON" class="btn btn-outline-primary">匯出設定(JSON)</button>
+                <label class="btn btn-outline-primary m-0">
+                    匯入設定(JSON)
+                    <input type="file" id="importJSON" accept="application/json" hidden />
+                </label>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <strong>成員與技能</strong>
+                        <span class="tiny">V6：不可出席改用日期加入/移除。</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-auto">
+                                <input id="memberName" class="form-control" placeholder="新增成員姓名" />
+                            </div>
+                            <div class="col-auto">
+                                <input id="memberWeeklyMax" type="number" min="0" class="form-control" placeholder="每週最多N次(選填)" />
+                            </div>
+                            <div class="col-auto">
+                                <button id="btnAddMember" class="btn btn-primary">新增成員</button>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 align-items-center mb-3">
+                            <div class="col-auto">
+                                <input id="customSkill" class="form-control" placeholder="新增自訂技能名稱" />
+                            </div>
+                            <div class="col-auto">
+                                <button id="btnAddSkill" class="btn btn-outline-primary">新增技能</button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle table-sticky" id="memberTable">
+                                <thead class="table-light" id="memberThead"></thead>
+                                <tbody id="memberTbody"></tbody>
+                            </table>
+                        </div>
+                        <p class="tiny m-0">提示：每位成員的不可出席日期可用日期控制項新增，也可逐筆移除。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="card mb-3">
+                    <div class="card-header"><strong>聚會設定</strong> <span class="tiny">（自動儲存）</span></div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6 col-md-4">
+                                <label class="form-label tiny">起始日</label>
+                                <input type="date" id="startDate" class="form-control">
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label tiny">結束日</label>
+                                <input type="date" id="endDate" class="form-control">
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label tiny">每週聚會日</label>
+                                <select id="meetingDay" class="form-select">
+                                    <option value="0">星期日</option>
+                                    <option value="1">星期一</option>
+                                    <option value="2">星期二</option>
+                                    <option value="3">星期三</option>
+                                    <option value="4">星期四</option>
+                                    <option value="5" selected>星期五</option>
+                                    <option value="6">星期六</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <label class="form-label tiny">休息日期</label>
+                        <div class="row g-2 align-items-center mb-2">
+                            <div class="col">
+                                <input type="date" id="restDatePicker" class="form-control" />
+                            </div>
+                            <div class="col-auto">
+                                <button id="btnAddRestDate" class="btn btn-outline-secondary">加入休息日</button>
+                            </div>
+                        </div>
+                        <div id="restDateList" class="muted-box tiny"></div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <strong>自動排班</strong>
+                        <button id="btnAutoAssign" class="btn btn-primary btn-sm">自動排班</button>
+                    </div>
+                    <div class="card-body">
+                        <p class="tiny mb-2">V6 使用評分式公平演算法：角色次數、總次數、本週集中度、近期/連續週服事都會影響排序。</p>
+                        <div id="manualWarningSummary" class="alert alert-warning py-2 d-none"></div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle" id="resultTable">
+                                <thead class="table-light" id="resultThead"></thead>
+                                <tbody id="resultTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><strong>統計表</strong></div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle" id="statsTable">
+                                <thead class="table-light" id="statsThead"></thead>
+                                <tbody id="statsTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row text-end mt-5">
+            <span class="text-muted">Copyright © 2025 Moudou Cheng. All rights reserved.</span>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/isoWeek.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/weekOfYear.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>dayjs.extend(dayjs_plugin_isoWeek);
+    dayjs.extend(dayjs_plugin_weekOfYear);
+
+    const STORAGE_KEY = 'serviceDataV6';
+    const LEGACY_KEYS = ['serviceDataV5', 'serviceDataV3'];
+
+    const DEFAULT_SKILLS = [
+      { key: 'message', name: '信息' },
+      { key: 'worship', name: '敬拜' },
+      { key: 'icebreak', name: '破冰' },
+      { key: 'snack', name: '點心' },
+    ];
+
+    let state = {
+      people: [],
+      skills: [...DEFAULT_SKILLS],
+      startDate: '',
+      endDate: '',
+      meetingDay: 5,
+      restDates: [],
+    };
+
+    const uid = () => 'm' + Math.random().toString(36).slice(2,9);
+
+    function persist() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadPersisted() {
+      let raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) {
+        for(const key of LEGACY_KEYS) {
+          raw = localStorage.getItem(key);
+          if(raw) break;
+        }
+      }
+      if(raw) state = migrate(JSON.parse(raw));
+    }
+
+    function renderMemberTable() {
+      const thead = $('#memberThead');
+      const tbody = $('#memberTbody');
+      thead.empty(); tbody.empty();
+
+      const headRow = $('<tr/>');
+      headRow.append('<th class="nowrap">姓名</th>');
+      state.skills.forEach(s => headRow.append(`<th class="text-center">${escapeHtml(s.name)}</th>`));
+      headRow.append('<th style="min-width:16rem">不可出席</th>');
+      headRow.append('<th class="w-20">每週上限</th>');
+      headRow.append('<th class="w-16">操作</th>');
+      thead.append(headRow);
+
+      state.people.forEach(p => {
+        const tr = $('<tr/>');
+        tr.append(`<td class="nowrap">${escapeHtml(p.name)}</td>`);
+        state.skills.forEach(s => {
+          const checked = !!(p.skills && p.skills[s.key]);
+          tr.append(`
+            <td class="text-center">
+              <input type="checkbox" class="form-check-input skillCheck" data-id="${p.id}" data-skill="${s.key}" ${checked?'checked':''} />
+            </td>`);
+        });
+        tr.append(`
+          <td>
+            <div class="input-group input-group-sm mb-1">
+              <input type="date" class="form-control unavailableDatePicker" data-id="${p.id}" />
+              <button class="btn btn-outline-secondary btnAddUnavailable" data-id="${p.id}" type="button">加入</button>
+            </div>
+            <div class="unavailableList" data-id="${p.id}">${renderDateChips(p.unavailable || [], 'btnRemoveUnavailable', p.id)}</div>
+          </td>`);
+        tr.append(`<td><input type="number" min="0" class="form-control form-control-sm weeklyMaxInput" data-id="${p.id}" value="${p.weeklyMax ?? ''}" placeholder="不限"/></td>`);
+        tr.append(`<td class="text-center"><button class="btn btn-sm btn-outline-danger btnDelMember" data-id="${p.id}">刪除</button></td>`);
+        tbody.append(tr);
+      });
+    }
+
+    function renderDateChips(dates, removeClass, id) {
+      const arr = normalizeDates(dates);
+      if(!arr.length) return '<span class="tiny text-muted">尚未加入</span>';
+      return arr.map(d => `<span class="chip">${d}<button class="${removeClass}" data-id="${id || ''}" data-date="${d}" title="移除">×</button></span>`).join('');
+    }
+
+    function renderRestDateList() {
+      $('#restDateList').html(renderDateChips(state.restDates || [], 'btnRemoveRestDate'));
+    }
+
+    function renderResultTableHeader() {
+      const tr = $('<tr/>');
+      tr.append('<th class="w-28">日期</th>');
+      state.skills.forEach(s => tr.append(`<th>${escapeHtml(s.name)}</th>`));
+      tr.append('<th class="w-16">備註</th>');
+      $('#resultThead').empty().append(tr);
+    }
+
+    function renderStatsTable() {
+      const thead = $('#statsThead');
+      const tbody = $('#statsTbody');
+      thead.empty(); tbody.empty();
+
+      const trh = $('<tr/>');
+      trh.append('<th>成員</th>');
+      state.skills.forEach(s => trh.append(`<th>${escapeHtml(s.name)}</th>`));
+      trh.append('<th>總計</th>');
+      thead.append(trh);
+
+      const counters = scanAssignmentCounts();
+      state.people.forEach(p => {
+        const tr = $('<tr/>');
+        tr.append(`<td>${escapeHtml(p.name)}</td>`);
+        let sum = 0;
+        state.skills.forEach(s => {
+          const c = counters.byRole[s.key]?.[p.id] || 0;
+          sum += c;
+          tr.append(`<td class="text-end">${c}</td>`);
+        });
+        tr.append(`<td class="text-end fw-bold">${sum}</td>`);
+        tbody.append(tr);
+      });
+    }
+
+    function scanAssignmentCounts() {
+      const byRole = {};
+      const byDate = {};
+      $('#resultTbody tr').each(function(){
+        const date = $(this).data('date');
+        if(!date || $(this).hasClass('rest-row')) return;
+        byDate[date] = byDate[date] || {};
+        $(this).find('select.assignSel').each(function(){
+          const role = $(this).data('role');
+          const mid = $(this).val();
+          if(!mid) return;
+          byDate[date][mid] = (byDate[date][mid] || 0) + 1;
+          byRole[role] = byRole[role] || {};
+          byRole[role][mid] = (byRole[role][mid] || 0) + 1;
+        });
+      });
+      return { byRole, byDate };
+    }
+
+    $(document).on('change', '.skillCheck', function(){
+      const p = state.people.find(x => x.id === $(this).data('id'));
+      if(!p) return;
+      p.skills = p.skills || {};
+      p.skills[$(this).data('skill')] = this.checked;
+      persist();
+      refreshAssignSelectOptions();
+      validateManualAssignments();
+    });
+
+    $(document).on('change', '.weeklyMaxInput', function(){
+      const p = state.people.find(x => x.id === $(this).data('id'));
+      if(!p) return;
+      const raw = $(this).val().trim();
+      const v = Number(raw);
+      p.weeklyMax = raw !== '' && Number.isFinite(v) && v >= 0 ? v : undefined;
+      persist();
+    });
+
+    $(document).on('click', '.btnAddUnavailable', function(){
+      const id = $(this).data('id');
+      const p = state.people.find(x => x.id === id);
+      const input = $(`.unavailableDatePicker[data-id="${id}"]`);
+      const date = input.val();
+      if(!p || !isIsoDate(date)) return;
+      p.unavailable = addUniqueDate(p.unavailable || [], date);
+      input.val('');
+      renderMemberTable();
+      persist();
+      validateManualAssignments();
+    });
+
+    $(document).on('click', '.btnRemoveUnavailable', function(){
+      const p = state.people.find(x => x.id === $(this).data('id'));
+      if(!p) return;
+      p.unavailable = (p.unavailable || []).filter(d => d !== $(this).data('date'));
+      renderMemberTable();
+      persist();
+      validateManualAssignments();
+    });
+
+    $(document).on('click', '.btnDelMember', function(){
+      const id = $(this).data('id');
+      state.people = state.people.filter(x => x.id !== id);
+      renderMemberTable();
+      refreshAssignSelectOptions();
+      renderStatsTable();
+      validateManualAssignments();
+      persist();
+    });
+
+    $('#btnAddMember').on('click', () => {
+      const name = $('#memberName').val().trim();
+      if(!name) return;
+      if(state.people.some(p => p.name === name)) { alert('姓名重複'); return; }
+      const weeklyMaxRaw = $('#memberWeeklyMax').val().trim();
+      const weeklyMax = weeklyMaxRaw ? Number(weeklyMaxRaw) : undefined;
+      state.people.push({ id: uid(), name, weeklyMax, unavailable: [], skills: {} });
+      $('#memberName').val('');
+      $('#memberWeeklyMax').val('');
+      renderMemberTable();
+      refreshAssignSelectOptions();
+      persist();
+    });
+
+    $('#btnAddSkill').on('click', () => {
+      const name = $('#customSkill').val().trim();
+      if(!name) return;
+      state.skills.push({ key: 'custom_' + Date.now(), name });
+      $('#customSkill').val('');
+      renderAll();
+      refreshAssignSelectOptions();
+      persist();
+    });
+
+    $('#btnAddRestDate').on('click', () => {
+      const date = $('#restDatePicker').val();
+      if(!isIsoDate(date)) return;
+      state.restDates = addUniqueDate(state.restDates || [], date);
+      $('#restDatePicker').val('');
+      renderRestDateList();
+      persist();
+    });
+
+    $(document).on('click', '.btnRemoveRestDate', function(){
+      state.restDates = (state.restDates || []).filter(d => d !== $(this).data('date'));
+      renderRestDateList();
+      persist();
+    });
+
+    $('#btnAutoAssign').on('click', autoAssignAll);
+
+    $(document).on('change', '#startDate,#endDate,#meetingDay', () => {
+      saveFromInputs();
+      persist();
+    });
+
+    $(document).on('change', 'select.assignSel', function(){
+      renderStatsTable();
+      validateManualAssignments();
+    });
+
+    $('#btnExportXLSX').on('click', exportXLSX);
+    $('#btnExportJSON').on('click', exportJSONSettings);
+    $('#importJSON').on('change', importJSONSettings);
+
+    function autoAssignAll() {
+      saveFromInputs();
+      persist();
+
+      const dates = buildMeetingDates();
+      const tbody = $('#resultTbody');
+      tbody.empty();
+
+      const restSet = new Set(normalizeDates(state.restDates));
+      const roleCounts = {};
+      const totalCounts = {};
+      const weeklyCounts = {};
+      const lastAssignedDate = {};
+      const lastAssignedWeek = {};
+      const unavailableMap = new Map();
+
+      state.people.forEach(p => unavailableMap.set(p.id, new Set(normalizeDates(p.unavailable || []))));
+
+      dates.forEach(d => {
+        const iso = d.format('YYYY-MM-DD');
+        const weekKey = isoWeekKey(d);
+        const tr = $('<tr/>').attr('data-date', iso);
+        tr.append($('<td/>').text(iso));
+
+        // V6：休息日真正跳過，不產生任何可選人員下拉選單，也不更新任何計數。
+        if(restSet.has(iso)) {
+          tr.addClass('rest-row');
+          tr.append($(`<td colspan="${state.skills.length + 1}"><span class="chip">休息</span></td>`));
+          tbody.append(tr);
+          return;
+        }
+
+        const assignedToday = new Set();
+
+        state.skills.forEach(s => {
+          const candidates = state.people
+            .filter(p => !!(p.skills && p.skills[s.key]))
+            .filter(p => !unavailableMap.get(p.id).has(iso))
+            .filter(p => !assignedToday.has(p.id))
+            .filter(p => {
+              if(p.weeklyMax == null) return true;
+              const current = weeklyCounts[p.id]?.[weekKey] || 0;
+              return current < p.weeklyMax;
+            });
+
+          const scored = candidates.map(p => ({
+            person: p,
+            score: calcFairnessScore(p, s.key, iso, weekKey, roleCounts, totalCounts, weeklyCounts, lastAssignedDate, lastAssignedWeek)
+          }));
+
+          scored.sort((a, b) => {
+            if(a.score !== b.score) return a.score - b.score;
+            return a.person.name.localeCompare(b.person.name, 'zh-Hant');
+          });
+
+          const chosen = scored[0]?.person;
+          const sel = $('<select class="form-select assignSel"></select>').attr('data-role', s.key);
+          sel.append('<option value="">— 未指派 —</option>');
+
+          const allWithSkill = state.people.filter(p => !!(p.skills && p.skills[s.key]));
+          allWithSkill.forEach(p => {
+            const opt = $('<option/>').val(p.id).text(p.name);
+            const notes = [];
+            if(unavailableMap.get(p.id).has(iso)) notes.push('不可');
+            const curr = weeklyCounts[p.id]?.[weekKey] || 0;
+            if(p.weeklyMax != null && curr >= p.weeklyMax) notes.push('達上限');
+            if(assignedToday.has(p.id)) notes.push('今日已排');
+            if(notes.length) opt.text(`${p.name}（${notes.join('、')}）`);
+            sel.append(opt);
+          });
+
+          if(chosen) {
+            sel.val(chosen.id);
+            roleCounts[s.key] = roleCounts[s.key] || {};
+            roleCounts[s.key][chosen.id] = (roleCounts[s.key][chosen.id] || 0) + 1;
+            totalCounts[chosen.id] = (totalCounts[chosen.id] || 0) + 1;
+            weeklyCounts[chosen.id] = weeklyCounts[chosen.id] || {};
+            weeklyCounts[chosen.id][weekKey] = (weeklyCounts[chosen.id][weekKey] || 0) + 1;
+            lastAssignedDate[chosen.id] = iso;
+            lastAssignedWeek[chosen.id] = weekKey;
+            assignedToday.add(chosen.id);
+          }
+
+          tr.append($('<td/>').append(sel));
+        });
+
+        tr.append('<td class="warningNote"></td>');
+        tbody.append(tr);
+      });
+
+      renderStatsTable();
+      validateManualAssignments();
+    }
+
+    function calcFairnessScore(p, role, iso, weekKey, roleCounts, totalCounts, weeklyCounts, lastAssignedDate, lastAssignedWeek) {
+      let score = 0;
+      score += (roleCounts[role]?.[p.id] || 0) * 100;    // 同一角色越少越優先
+      score += (totalCounts[p.id] || 0) * 20;            // 總服事越少越優先
+      score += (weeklyCounts[p.id]?.[weekKey] || 0) * 50; // 避免同週過度集中
+
+      if(lastAssignedDate[p.id]) {
+        const gapDays = dayjs(iso).diff(dayjs(lastAssignedDate[p.id]), 'day');
+        if(gapDays <= 7) score += 80;
+        else if(gapDays <= 14) score += 30;
+      }
+
+      if(lastAssignedWeek[p.id]) {
+        const prev = weekNumberValue(lastAssignedWeek[p.id]);
+        const curr = weekNumberValue(weekKey);
+        if(curr - prev === 1) score += 40; // 避免連續週服事
+      }
+
+      return score;
+    }
+
+    function validateManualAssignments() {
+      let warningCount = 0;
+      $('#resultTbody tr').each(function(){
+        const tr = $(this);
+        const date = tr.data('date');
+        tr.find('td').removeClass('warning-cell');
+        tr.find('.warning-text').remove();
+        tr.find('.warningNote').empty();
+        if(!date || tr.hasClass('rest-row')) return;
+
+        const seen = {};
+        tr.find('select.assignSel').each(function(){
+          const mid = $(this).val();
+          if(!mid) return;
+          seen[mid] = seen[mid] || [];
+          seen[mid].push(this);
+        });
+
+        Object.entries(seen).forEach(([mid, selects]) => {
+          if(selects.length <= 1) return;
+          warningCount++;
+          const name = state.people.find(p => p.id === mid)?.name || '同一人';
+          selects.forEach(sel => {
+            const td = $(sel).closest('td');
+            td.addClass('warning-cell');
+            td.append(`<div class="warning-text">提醒：${escapeHtml(name)} 今日重複服事</div>`);
+          });
+          tr.find('.warningNote').append(`<div class="warning-text">${escapeHtml(name)} 重複</div>`);
+        });
+      });
+
+      if(warningCount) {
+        $('#manualWarningSummary').removeClass('d-none').text(`提醒：目前有 ${warningCount} 個日期出現同一人同日重複服事。系統只警告，不禁止。`);
+      } else {
+        $('#manualWarningSummary').addClass('d-none').empty();
+      }
+    }
+
+    function buildMeetingDates() {
+      const start = dayjs(state.startDate);
+      const end = dayjs(state.endDate);
+      const list = [];
+      if(!start.isValid() || !end.isValid() || end.isBefore(start)) return list;
+      let cur = start.startOf('day');
+      while(cur.isBefore(end) || cur.isSame(end, 'day')) {
+        if(cur.day() === Number(state.meetingDay)) list.push(cur);
+        cur = cur.add(1, 'day');
+      }
+      return list;
+    }
+
+    function isoWeekKey(d) {
+      const week = String(d.isoWeek()).padStart(2,'0');
+      return `${d.isoWeekYear()}-W${week}`;
+    }
+
+    function weekNumberValue(weekKey) {
+      const m = String(weekKey).match(/^(\d+)-W(\d+)$/);
+      if(!m) return 0;
+      return Number(m[1]) * 60 + Number(m[2]);
+    }
+
+    function exportXLSX() {
+      const wb = XLSX.utils.book_new();
+      const wsData = [];
+      wsData.push(['日期', ...state.skills.map(s => s.name)]);
+
+      $('#resultTbody tr').each(function(){
+        const date = $(this).data('date');
+        if(!date) return;
+        if($(this).hasClass('rest-row')) {
+          wsData.push([date, '休息']);
+          return;
+        }
+        const row = [date];
+        $(this).find('select.assignSel').each(function(){
+          const mid = $(this).val();
+          row.push(mid ? (state.people.find(p => p.id === mid)?.name || '') : '');
+        });
+        wsData.push(row);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, '服事表');
+      XLSX.writeFile(wb, '服事表.xlsx');
+    }
+
+    function exportJSONSettings() {
+      const payload = {
+        people: state.people.map(p => ({
+          id: p.id,
+          name: p.name,
+          weeklyMax: p.weeklyMax ?? null,
+          unavailable: normalizeDates(p.unavailable || []),
+          skills: p.skills || {}
+        })),
+        skills: state.skills,
+        startDate: state.startDate,
+        endDate: state.endDate,
+        meetingDay: state.meetingDay,
+        restDates: normalizeDates(state.restDates || [])
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'service_settings_v6.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJSONSettings(evt) {
+      const f = evt.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const obj = JSON.parse(e.target.result);
+          if(!obj.people || !obj.skills) throw new Error('格式不正確');
+          state = migrate(obj);
+          renderAll();
+          persist();
+          alert('匯入完成');
+        } catch(err) {
+          console.error(err);
+          alert('匯入失敗：' + err.message);
+        } finally {
+          evt.target.value = '';
+        }
+      };
+      reader.readAsText(f, 'utf-8');
+    }
+
+    function saveFromInputs(){
+      state.startDate = $('#startDate').val();
+      state.endDate = $('#endDate').val();
+      state.meetingDay = Number($('#meetingDay').val());
+      state.restDates = normalizeDates(state.restDates || []);
+    }
+
+    function hydrateToInputs(){
+      $('#startDate').val(state.startDate || '');
+      $('#endDate').val(state.endDate || '');
+      $('#meetingDay').val(state.meetingDay ?? 5);
+      renderRestDateList();
+    }
+
+    function refreshAssignSelectOptions(){
+      $('#resultTbody select.assignSel').each(function(){
+        const role = $(this).data('role');
+        const val = $(this).val();
+        $(this).empty().append('<option value="">— 未指派 —</option>');
+        state.people.filter(p => p.skills && p.skills[role]).forEach(p => {
+          $(this).append($('<option/>').val(p.id).text(p.name));
+        });
+        $(this).val(val);
+      });
+    }
+
+    function renderAll(){
+      hydrateToInputs();
+      renderMemberTable();
+      renderResultTableHeader();
+      renderStatsTable();
+      validateManualAssignments();
+    }
+
+    function migrate(obj){
+      const out = Object.assign({
+        people: [], skills: [...DEFAULT_SKILLS], startDate:'', endDate:'', meetingDay:5, restDates:[]
+      }, obj || {});
+      out.skills = (out.skills && out.skills.length) ? out.skills : [...DEFAULT_SKILLS];
+      out.people = (out.people || []).map(p => ({
+        id: p.id || uid(),
+        name: p.name || '',
+        weeklyMax: p.weeklyMax == null ? undefined : Number(p.weeklyMax),
+        unavailable: normalizeDates(p.unavailable || []),
+        skills: p.skills || {}
+      }));
+      out.restDates = normalizeDates(out.restDates || []);
+      out.meetingDay = Number(out.meetingDay ?? 5);
+      return out;
+    }
+
+    function normalizeDates(dates) {
+      return [...new Set((dates || []).map(String).map(s => s.trim()).filter(isIsoDate))].sort();
+    }
+
+    function addUniqueDate(dates, date) {
+      return normalizeDates([...(dates || []), date]);
+    }
+
+    function isIsoDate(s) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && dayjs(s).isValid();
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    (function init(){
+      loadPersisted();
+      renderAll();
+    })();</script>
+</body>
+</html>

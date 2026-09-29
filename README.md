@@ -8,7 +8,7 @@
 
 
 ## 進入主系統
-前往 [小組服事排班系統 Pro V6](/V6.html)
+前往 [小組服事排班系統 Pro V6](/ChurchRosterGenerator/V6.html)
 
 ## 前往說明
-前往 [排班系統說明](/MANUAL.html)
+前往 [排班系統說明](/ChurchRosterGenerator/MANUAL.html)
